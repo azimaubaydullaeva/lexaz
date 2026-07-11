@@ -1,12 +1,12 @@
 """
-Основной бот Lexaz — с админ-командами, двойной защитой и логированием.
-Работает локально (с .env) и на Render (с Environment Variables).
+Основной бот Lexaz — с админ-командами, двойной защитой, логированием и Flask для Render.
 """
 
 import telebot
 import os
 import re
 import requests
+import threading
 from bs4 import BeautifulSoup
 
 import ai_manager
@@ -15,7 +15,7 @@ import lexaz_personality
 
 # ═══════════════════════════════════════════════════════════════
 # ЗАГРУЗКА КЛЮЧЕЙ
-# ═══════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
 
 def load_env():
     """Загружает переменные из .env если файл есть (локально), 
@@ -58,7 +58,7 @@ user_states = {}
 
 SECRET_CODE = "lexazimaz"
 
-# ═══════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
 # ПРОВЕРКА АДМИНА
 # ═══════════════════════════════════════════════════════════════
 
@@ -211,7 +211,7 @@ def feedbacks_cmd(message):
         bot.reply_to(message, "Отзывов пока нет.")
         return
     
-    text = " *Последние отзывы:*\n\n"
+    text = "📩 *Последние отзывы:*\n\n"
     for r in reviews:
         name = r['first_name'] or 'Неизвестно'
         uname = f"@{r['username']}" if r['username'] else 'нет username'
@@ -446,7 +446,7 @@ def handle_review(message):
     bot.reply_to(message, "Спасибо за отзыв! Он очень важен для меня.")
     
     if ADMIN_USER_ID:
-        admin_text = f""" *Новый отзыв*
+        admin_text = f"""📩 *Новый отзыв*
 
 *От:* {message.from_user.first_name or 'Неизвестно'}
 *Username:* @{message.from_user.username or 'нет'}
@@ -480,8 +480,8 @@ def send_long_message(message, text: str):
         for i in range(0, len(text), 4000):
             bot.reply_to(message, text[i:i+4000])
 
-# ═══════════════════════════════════════════════════════════════
-# ЗАПУСК
+# ══════════════════════════════════════════════════════════════
+# ЗАПУСК (с Flask для Render)
 # ═══════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
@@ -493,7 +493,7 @@ if __name__ == "__main__":
     
     print(f"Админ ID: {ADMIN_USER_ID}")
     print(f"Секретный код рассылки: {SECRET_CODE}")
-    print("Бот запущен. Нажмите Ctrl+C для остановки.")
+    print("Бот запущен.")
     print("="*60)
     print("Админ-команды (только для вас):")
     print("  /stats — статистика")
@@ -502,4 +502,20 @@ if __name__ == "__main__":
     print("  /users — список пользователей")
     print("="*60)
     
-    bot.infinity_polling()
+    # Запускаем бота в отдельном потоке
+    bot_thread = threading.Thread(target=bot.infinity_polling, kwargs={
+        'timeout': 60,
+        'long_polling_timeout': 60
+    }, daemon=True)
+    bot_thread.start()
+    
+    # Запускаем невидимый веб-сервер, чтобы Render не ругался на порты
+    from flask import Flask
+    app = Flask(__name__)
+    
+    @app.route('/')
+    def health_check():
+        return 'Lexaz bot is running', 200
+    
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
