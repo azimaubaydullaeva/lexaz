@@ -1,0 +1,4 @@
+import subprocess, sys
+for lib in ['groq', 'openai', 'pytelegrambotapi', 'requests', 'beautifulsoup4']:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", lib, "--quiet"])
+print("Готово!")

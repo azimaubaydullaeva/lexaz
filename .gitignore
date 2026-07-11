@@ -1,0 +1,5 @@
+.env
+lexaz.db
+__pycache__/
+*.pyc
+.vscode/
