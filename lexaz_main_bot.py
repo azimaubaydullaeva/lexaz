@@ -1,5 +1,6 @@
 """
 Основной бот Lexaz — с админ-командами, двойной защитой и логированием.
+Работает локально (с .env) и на Render (с Environment Variables).
 """
 
 import telebot
@@ -17,15 +18,18 @@ import lexaz_personality
 # ═══════════════════════════════════════════════════════════════
 
 def load_env():
-    if not os.path.exists('.env'):
-        print("Файл .env не найден!")
-        exit()
-    with open('.env', 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if '=' in line and not line.startswith('#'):
-                key, value = line.split('=', 1)
-                os.environ[key.strip()] = value.strip()
+    """Загружает переменные из .env если файл есть (локально), 
+    или использует переменные окружения (на Render)"""
+    if os.path.exists('.env'):
+        with open('.env', 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if '=' in line and not line.startswith('#'):
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip()
+        print("Загружены переменные из .env")
+    else:
+        print("Файл .env не найден — использую переменные окружения (Render)")
 
 load_env()
 
@@ -33,7 +37,9 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN', '')
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '0'))
 
 if not TELEGRAM_TOKEN:
-    print("TELEGRAM_TOKEN не найден в .env")
+    print("TELEGRAM_TOKEN не найден!")
+    print("Локально: создайте .env файл")
+    print("На Render: добавьте TELEGRAM_TOKEN в Environment Variables")
     exit()
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
@@ -48,13 +54,13 @@ user_states = {}
 
 # ═══════════════════════════════════════════════════════════════
 # СЕКРЕТНЫЙ КОД ДЛЯ РАССЫЛОК
-# ══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
 
 SECRET_CODE = "lexazimaz"
 
 # ═══════════════════════════════════════════════════════════════
 # ПРОВЕРКА АДМИНА
-# ══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
 
 def is_admin(user_id: int) -> bool:
     return user_id == ADMIN_USER_ID
@@ -279,7 +285,7 @@ def send_broadcast(message, text: str):
         status_msg.message_id
     )
 
-# ══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
 # ГЛАВНЫЙ ОБРАБОТЧИК С ЛОГИРОВАНИЕМ
 # ═══════════════════════════════════════════════════════════════
 
@@ -290,9 +296,7 @@ def handle_message(message):
     first_name = message.from_user.first_name or 'Неизвестно'
     user_query = message.text
     
-    # ═══════════════════════════════════════════════════════════════
-    # ЛОГИРОВАНИЕ В ТЕРМИНАЛ — видно каждое сообщение
-    # ═══════════════════════════════════════════════════════════════
+    # ЛОГИРОВАНИЕ В ТЕРМИНАЛ
     print(f"\n[User: {user_id} | @{username} | {first_name}] {user_query}")
     
     if not user_query or not user_query.strip():
@@ -476,7 +480,7 @@ def send_long_message(message, text: str):
         for i in range(0, len(text), 4000):
             bot.reply_to(message, text[i:i+4000])
 
-# ══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
 # ЗАПУСК
 # ═══════════════════════════════════════════════════════════════
 
